@@ -29,6 +29,7 @@
 	15 Jul 2016 : Ported to Pelles C from MESCC (under CP/M).
 	16 Jul 2016 : Added CfGetAll().
 	21 Oct 2016 : Solved a couple of bugs in CfRead() and xCfAdd(). Refactorized function names.
+	24 Oct 2016 : Modified CfRead(), CfWrite(), CfSetKey() to support reading and writing empty lines and comments.
 
 	Notes:
 
@@ -60,7 +61,7 @@ CF *CfCreate(int max);
 CF *CfDestroy(CF *cf);
 int CfSetKey(CF *cf, char *key, char *value);
 char *CfGetKey(CF *cf, char *key);
-int CfRead(CF *cf, char *fname);
+int CfRead(CF *cf, char *fname, int cmt);
 int CfWrite(CF *cf, char *fname);
 void CfGetAll(CF *cf, int (*funct)(char *key, char *value));
 int CfGetBool(CF *cf, char *key, int def);
@@ -163,7 +164,7 @@ int CfSetKey(CF *cf, char *key, char *value)
 	int entry;
 
 	// Get entry number
-	if((entry = xCfFind(cf->keys, cf->max, key)) != -1) {
+	if((entry = (*key && *key != '#' && *key != ';') ? xCfFind(cf->keys, cf->max, key) : -1) != -1) {
 
 		// The key exists: change its value
 		if(xCfSet(cf->values, value, entry)) {
@@ -225,23 +226,21 @@ char *CfGetKey(CF *cf, char *key)
    ---------------------------------------
    Return 0 on success, or -1 on failure.
 */
-int CfRead(CF *cf, char *fname)
+int CfRead(CF *cf, char *fname, int cmt)
 {
 	FILE *fp;
 	int err, k;
-	char *bf, *key;
+	char *bf, *key, cmt_key[2];
 
 	// Default: no errors
-	err = 0;
+	err = cmt_key[1] = 0;
 
 	// Open file
 	if((fp = fopen(fname, "r"))) {
 		while(fgets(xcf_buf, XCF_BF_SIZE, fp)) {
 
 			// Get the length of the string
-			// and skip empty lines
-			if(!(k = strlen(xcf_buf)))
-				continue;
+			k = strlen(xcf_buf);
 
 			// Remove the trailing new line if any,
 			// and check for too long lines.
@@ -255,16 +254,28 @@ int CfRead(CF *cf, char *fname)
 			// Remove spaces on the left
 			bf = xCfLfSpaces(xcf_buf);
 
-			// Skip comments
-			if(*bf == '#' || *bf == ';')
-				continue;
-
 			// Remove spaces on the right
 			bf = xCfRtSpaces(bf);
 
-			// Skip empty lines
-			if(!(*bf))
+			// Skip comments and empty lines
+			if(!(*bf) || *bf == '#' || *bf == ';') {
+				if(cmt)	{
+					cmt_key[0] = *bf;
+
+					if(*bf) {
+						// Remove spaces on the left
+						bf = xCfLfSpaces(bf + 1);
+					}
+
+					if(CfSetKey(cf, cmt_key, bf)) {
+						CfDestroy(cf);
+						err = -1;
+						break;
+					}
+				}
+
 				continue;
+			}
 
 			// Set the pointer to the key name
 			key = bf;
@@ -347,7 +358,12 @@ int CfWrite(CF *cf, char *fname)
 		// Write key / value pairs
 		for(i = 0; i < max; ++i) {
 			if(arrk[i]) {
-				fprintf(fp, "%s = %s\n", arrk[i], arrv[i]);
+				if(*arrk[i]) {
+					fprintf(fp, (*arrk[i] != '#' && *arrk[i] != ';') ? "%s = %s\n" : "%s %s\n", arrk[i], arrv[i]);
+				}
+				else {
+					fputc('\n', fp);
+				}
 			}
 		}
 
@@ -563,8 +579,14 @@ void CfPrKeys(CF *cf)
 	arrv = cf->values;
 
 	for(i = 0; i < cf->max; ++i) {
-		if(arrk[i])
-			printf("%d : %s = %s\n", i, arrk[i], arrv[i]);
+		if(arrk[i]) {
+			if(*arrk[i]) {
+				printf((*arrk[i] == '#' || *arrk[i] == ';') ? "%02d : %s %s\n" : "%02d : %s = %s\n", i, arrk[i], arrv[i]);
+			}
+			else {
+				printf("%02d :\n", i);
+			}
+		}
 	}
 }
 
