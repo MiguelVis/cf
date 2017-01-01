@@ -30,6 +30,7 @@
 	16 Jul 2016 : Added CfGetAll().
 	21 Oct 2016 : Solved a couple of bugs in CfRead() and xCfAdd(). Refactorized function names.
 	24 Oct 2016 : Modified CfRead(), CfWrite(), CfSetKey() to support reading and writing empty lines and comments.
+	01 Jan 2017 : Don't destroy CF on error in CfRead().
 
 	Notes:
 
@@ -268,7 +269,7 @@ int CfRead(CF *cf, char *fname, int cmt)
 					}
 
 					if(CfSetKey(cf, cmt_key, bf)) {
-						CfDestroy(cf);
+						//CfDestroy(cf);
 						err = -1;
 						break;
 					}
@@ -320,7 +321,7 @@ int CfRead(CF *cf, char *fname, int cmt)
 
 			// Add the key / value pair to the configuration buffer
 			if(CfSetKey(cf, key, bf)) {
-				CfDestroy(cf);
+				//CfDestroy(cf);
 				err = -1;
 				break;
 			}
