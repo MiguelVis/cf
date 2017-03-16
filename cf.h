@@ -31,6 +31,7 @@
 	21 Oct 2016 : Solved a couple of bugs in CfRead() and xCfAdd(). Refactorized function names.
 	24 Oct 2016 : Modified CfRead(), CfWrite(), CfSetKey() to support reading and writing empty lines and comments.
 	01 Jan 2017 : Don't destroy CF on error in CfRead().
+	16 Mar 2017 : Removed duplicated code in xCfAdd().
 
 	Notes:
 
@@ -673,12 +674,8 @@ int xCfAdd(char **arr, int size, char *data)
 	for(i = 0; i < size; ++i) {
 		if(!arr[i]) {
 
-			// Set the value
-			if(xCfSet(arr, data, i)) {
-
-				// Set the value and return success or failure
-				return xCfSet(arr, data, i) ? i : -1;
-			}
+			// Set the value and return success or failure
+			return xCfSet(arr, data, i) ? i : -1;
 		}
 	}
 
